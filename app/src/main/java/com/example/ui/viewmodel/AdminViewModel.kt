@@ -46,6 +46,11 @@ class AdminViewModel(
     private val _actionFeedbackMessage = MutableStateFlow<String?>(null)
     val actionFeedbackMessage: StateFlow<String?> = _actionFeedbackMessage.asStateFlow()
 
+    val deviceId: String get() = repository.deviceId
+
+    private val _isActivating = MutableStateFlow(false)
+    val isActivating: StateFlow<Boolean> = _isActivating.asStateFlow()
+
     private val _activationError = MutableStateFlow<String?>(null)
     val activationError: StateFlow<String?> = _activationError.asStateFlow()
 
@@ -180,15 +185,20 @@ class AdminViewModel(
     fun activateCodeOnDevice(code: String) {
         viewModelScope.launch {
             _activationError.value = null
-            repository.activateOnDevice(code)
-                .onSuccess {
-                    _isActivationSuccess.value = true
-                    _actionFeedbackMessage.value = "Licence validée et activée en ligne !"
-                }
-                .onFailure {
-                    _activationError.value = it.localizedMessage ?: "Code invalide"
-                    _isActivationSuccess.value = false
-                }
+            _isActivating.value = true
+            try {
+                repository.activateOnDevice(code)
+                    .onSuccess {
+                        _isActivationSuccess.value = true
+                        _actionFeedbackMessage.value = "Licence validée et activée en ligne !"
+                    }
+                    .onFailure {
+                        _activationError.value = it.localizedMessage ?: "Code invalide"
+                        _isActivationSuccess.value = false
+                    }
+            } finally {
+                _isActivating.value = false
+            }
         }
     }
 

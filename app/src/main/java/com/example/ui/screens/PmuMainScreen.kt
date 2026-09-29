@@ -86,6 +86,7 @@ fun PmuMainScreen(
 
     // Admin & License State
     val activeLicense by adminViewModel.activeLicense.collectAsStateWithLifecycle()
+    val isActivating by adminViewModel.isActivating.collectAsStateWithLifecycle()
     val isAdminAuthenticated by adminViewModel.isAdminAuthenticated.collectAsStateWithLifecycle()
     val allCodes by adminViewModel.allCodes.collectAsStateWithLifecycle()
     val filteredCodes by adminViewModel.filteredCodes.collectAsStateWithLifecycle()
@@ -124,184 +125,152 @@ fun PmuMainScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag("pmu_main_screen"),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
-            ) {
-                PmuHeader(
-                    selectedDate = selectedDate,
-                    dateDisplayStr = dateDisplayStr,
-                    isToday = isToday,
-                    isLoading = isLoadingProgramme || isLoadingCourseData,
-                    lastUpdatedTime = lastUpdatedTime,
-                    activeLicense = activeLicense,
-                    onOpenLicenseDialog = { showLicenseDialog = true },
-                    onOpenAdminDialog = {
-                        if (isAdminAuthenticated) {
-                            showAdminDashboard = true
-                        } else {
-                            showAdminLoginDialog = true
-                        }
-                    },
-                    onPreviousDay = { pmuViewModel.goToPreviousDay() },
-                    onNextDay = { pmuViewModel.goToNextDay() },
-                    onToday = { pmuViewModel.goToToday() },
-                    onSelectDate = { pmuViewModel.setDate(it) },
-                    onRefresh = { pmuViewModel.refresh() }
-                )
-
-                if (reunions.isNotEmpty()) {
-                    ReunionCourseSelectors(
-                        reunions = reunions,
-                        selectedReunion = selectedReunion,
-                        selectedCourse = selectedCourse,
-                        onSelectReunion = { pmuViewModel.selectReunion(it) },
-                        onSelectCourse = { pmuViewModel.selectCourse(it) }
-                    )
+    if (!isLicensed) {
+        AccessLockScreen(
+            deviceId = adminViewModel.deviceId,
+            isActivating = isActivating,
+            activationError = activationError,
+            onActivateCode = { code -> adminViewModel.activateCodeOnDevice(code) },
+            onOpenAdmin = {
+                if (isAdminAuthenticated) {
+                    showAdminDashboard = true
+                } else {
+                    showAdminLoginDialog = true
                 }
-            }
-        },
-        bottomBar = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
-            ) {
-                ResponsibleGamingBanner()
-            }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
+            },
+            onClearError = { adminViewModel.clearActivationFeedback() },
+            modifier = modifier
+        )
+    } else {
+        Scaffold(
+            modifier = modifier
                 .fillMaxSize()
-                .background(TurfBackground)
-                .padding(innerPadding)
-        ) {
-            when {
-                isLoadingProgramme -> {
-                    LoadingView(message = "Chargement des courses PMU...")
-                }
-
-                errorMessage != null -> {
-                    ErrorMessageView(
-                        errorMessage = errorMessage ?: "Erreur inconnue",
-                        onRetry = { pmuViewModel.refresh() }
-                    )
-                }
-
-                reunions.isEmpty() -> {
-                    EmptyProgrammeView(
-                        dateDisplay = dateDisplayStr,
-                        onGoToToday = { pmuViewModel.goToToday() },
+                .testTag("pmu_main_screen"),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            topBar = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
+                ) {
+                    PmuHeader(
+                        selectedDate = selectedDate,
+                        dateDisplayStr = dateDisplayStr,
+                        isToday = isToday,
+                        isLoading = isLoadingProgramme || isLoadingCourseData,
+                        lastUpdatedTime = lastUpdatedTime,
+                        activeLicense = activeLicense,
+                        onOpenLicenseDialog = { showLicenseDialog = true },
+                        onOpenAdminDialog = {
+                            if (isAdminAuthenticated) {
+                                showAdminDashboard = true
+                            } else {
+                                showAdminLoginDialog = true
+                            }
+                        },
+                        onPreviousDay = { pmuViewModel.goToPreviousDay() },
+                        onNextDay = { pmuViewModel.goToNextDay() },
+                        onToday = { pmuViewModel.goToToday() },
+                        onSelectDate = { pmuViewModel.setDate(it) },
                         onRefresh = { pmuViewModel.refresh() }
                     )
+
+                    if (reunions.isNotEmpty()) {
+                        ReunionCourseSelectors(
+                            reunions = reunions,
+                            selectedReunion = selectedReunion,
+                            selectedCourse = selectedCourse,
+                            onSelectReunion = { pmuViewModel.selectReunion(it) },
+                            onSelectCourse = { pmuViewModel.selectCourse(it) }
+                        )
+                    }
                 }
+            },
+            bottomBar = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                ) {
+                    ResponsibleGamingBanner()
+                }
+            }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(TurfBackground)
+                    .padding(innerPadding)
+            ) {
+                when {
+                    isLoadingProgramme -> {
+                        LoadingView(message = "Chargement des courses PMU...")
+                    }
 
-                selectedCourse != null -> {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Unlicensed alert banner
-                        if (!isLicensed) {
-                            item {
-                                Surface(
-                                    onClick = { showLicenseDialog = true },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFFFEF2F2),
-                                    border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
-                                    modifier = Modifier.fillMaxWidth().testTag("unlicensed_banner")
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Lock,
-                                            contentDescription = null,
-                                            tint = Color(0xFFDC2626),
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "Application protégée (Firestore)",
-                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = Color(0xFF991B1B)
-                                            )
-                                            Text(
-                                                text = "Touchez ici pour saisir votre code d'accès généré par l'ordinateur.",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color(0xFFB91C1C)
-                                            )
-                                        }
-                                        Button(
-                                            onClick = { showLicenseDialog = true },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = PmuGreenPrimary,
-                                                contentColor = Color.White
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.height(32.dp)
-                                        ) {
-                                            Text("Activer", style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    errorMessage != null -> {
+                        ErrorMessageView(
+                            errorMessage = errorMessage ?: "Erreur inconnue",
+                            onRetry = { pmuViewModel.refresh() }
+                        )
+                    }
 
-                        // Course Header
-                        item {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            CourseHeaderCard(
-                                course = selectedCourse!!,
-                                hippodromeNom = selectedReunion?.hippodromeNom ?: "HIPPODROME"
-                            )
-                        }
+                    reunions.isEmpty() -> {
+                        EmptyProgrammeView(
+                            dateDisplay = dateDisplayStr,
+                            onGoToToday = { pmuViewModel.goToToday() },
+                            onRefresh = { pmuViewModel.refresh() }
+                        )
+                    }
 
-                        if (isLoadingCourseData) {
+                    selectedCourse != null -> {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Course Header
                             item {
-                                LoadingView(message = "Chargement des partants & pronostics...")
-                            }
-                        } else {
-                            // Pronostics PMU Card
-                            item {
-                                PronosticCard(
-                                    pronosticItems = pronosticItems,
-                                    commentaire = commentaire,
-                                    betCombinations = betCombinations
+                                Spacer(modifier = Modifier.height(4.dp))
+                                CourseHeaderCard(
+                                    course = selectedCourse!!,
+                                    hippodromeNom = selectedReunion?.hippodromeNom ?: "HIPPODROME"
                                 )
                             }
 
-                            // Partants List Section
-                            if (participants.isNotEmpty()) {
+                            if (isLoadingCourseData) {
                                 item {
-                                    PartantsListSection(
-                                        participants = participants,
-                                        sortByCote = sortByCote,
-                                        onToggleSort = { pmuViewModel.toggleSortByCote() }
+                                    LoadingView(message = "Chargement des partants & pronostics...")
+                                }
+                            } else {
+                                // Pronostics PMU Card
+                                item {
+                                    PronosticCard(
+                                        pronosticItems = pronosticItems,
+                                        commentaire = commentaire,
+                                        betCombinations = betCombinations
                                     )
                                 }
-                            }
-                        }
 
-                        item {
-                            Spacer(modifier = Modifier.height(16.dp))
+                                // Partants List Section
+                                if (participants.isNotEmpty()) {
+                                    item {
+                                        PartantsListSection(
+                                            participants = participants,
+                                            sortByCote = sortByCote,
+                                            onToggleSort = { pmuViewModel.toggleSortByCote() }
+                                        )
+                                    }
+                                }
+                            }
+
+                            item {
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
                         }
                     }
                 }

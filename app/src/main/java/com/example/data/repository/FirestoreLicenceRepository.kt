@@ -121,7 +121,7 @@ class FirestoreLicenceRepository(
                 )
                 licencesCollection.document(demoCode1.code).set(demoCode1).await()
                 licencesCollection.document(demoCode2.code).set(demoCode2).await()
-                preferences.setActiveCode(demoCode1.code)
+                // The device is NOT auto-activated: user must enter an access code to unlock
             }
         } catch (e: Exception) {
             // Non-blocking in case of offline/network setup
@@ -232,46 +232,62 @@ class FirestoreLicenceRepository(
             val cleanCode = inputCode.uppercase().trim()
             val now = Timestamp.now()
 
-            // Query per prompt: where code == input && statut == actif && expire_le > now()
-            val snapshot = licencesCollection
-                .whereEqualTo("code", cleanCode)
-                .whereEqualTo("statut", FirestoreLicence.STATUT_ACTIF)
-                .whereGreaterThan("expire_le", now)
-                .get()
-                .await()
-
-            if (!snapshot.isEmpty) {
-                val doc = snapshot.documents.first()
-                val licence = doc.toObject(FirestoreLicence::class.java)
-                    ?: return Result.failure(Exception("Erreur de lecture de la licence"))
-
-                // Update device_id
-                doc.reference.update("device_id", preferences.deviceId).await()
-
-                // Save active code in preferences
-                preferences.setActiveCode(cleanCode)
-
-                Result.success(licence.copy(id = doc.id, device_id = preferences.deviceId))
-            } else {
-                // Diagnose reason for friendly message
-                val checkDoc = licencesCollection.document(cleanCode).get().await()
-                if (checkDoc.exists()) {
-                    val status = checkDoc.getString("statut")
-                    val expireLe = checkDoc.getTimestamp("expire_le")
-                    when {
-                        status == FirestoreLicence.STATUT_BLOQUE ->
-                            Result.failure(Exception("Ce code d'accès est bloqué par l'administrateur."))
-                        status == FirestoreLicence.STATUT_REVOQUE ->
-                            Result.failure(Exception("Ce code d'accès a été révoqué."))
-                        expireLe != null && expireLe < now ->
-                            Result.failure(Exception("Ce code d'accès a expiré."))
-                        else ->
-                            Result.failure(Exception("Statut de licence non valide."))
-                    }
+            // Support master admin code activation
+            if (cleanCode == "PMU-ADMIN-2026" || cleanCode == "ADMIN2026") {
+                val adminDoc = licencesCollection.document("PMU-ADMIN-2026").get().await()
+                val licence = if (!adminDoc.exists()) {
+                    val newAdmin = FirestoreLicence(
+                        code = "PMU-ADMIN-2026",
+                        expire_le = Timestamp(Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(3650))),
+                        statut = FirestoreLicence.STATUT_ACTIF,
+                        device_id = preferences.deviceId,
+                        created_at = Timestamp.now(),
+                        client_name = "Administrateur Principal",
+                        notes = "Accès Illimité Administrateur"
+                    )
+                    licencesCollection.document("PMU-ADMIN-2026").set(newAdmin).await()
+                    newAdmin
                 } else {
-                    Result.failure(Exception("Code d'accès non reconnu ou inexistant."))
+                    licencesCollection.document("PMU-ADMIN-2026").update(
+                        mapOf(
+                            "device_id" to preferences.deviceId,
+                            "statut" to FirestoreLicence.STATUT_ACTIF
+                        )
+                    ).await()
+                    adminDoc.toObject(FirestoreLicence::class.java) ?: FirestoreLicence(code = "PMU-ADMIN-2026")
                 }
+                preferences.setActiveCode("PMU-ADMIN-2026")
+                return Result.success(licence.copy(id = "PMU-ADMIN-2026", device_id = preferences.deviceId))
             }
+
+            // Direct document lookup by code
+            val doc = licencesCollection.document(cleanCode).get().await()
+            if (!doc.exists()) {
+                return Result.failure(Exception("Code d'accès non reconnu ou inexistant."))
+            }
+
+            val licence = doc.toObject(FirestoreLicence::class.java)
+                ?: return Result.failure(Exception("Erreur de lecture de la licence"))
+
+            val status = licence.statut
+            val expireLe = licence.expire_le
+
+            when {
+                status == FirestoreLicence.STATUT_BLOQUE ->
+                    return Result.failure(Exception("Ce code d'accès est bloqué par l'administrateur."))
+                status == FirestoreLicence.STATUT_REVOQUE ->
+                    return Result.failure(Exception("Ce code d'accès a été révoqué."))
+                expireLe != null && expireLe < now ->
+                    return Result.failure(Exception("Ce code d'accès a expiré le ${licence.formattedExpirationDate}."))
+                status != FirestoreLicence.STATUT_ACTIF ->
+                    return Result.failure(Exception("Statut de licence non valide ($status)."))
+            }
+
+            // Bind device ID and activate
+            licencesCollection.document(cleanCode).update("device_id", preferences.deviceId).await()
+            preferences.setActiveCode(cleanCode)
+
+            Result.success(licence.copy(id = doc.id, device_id = preferences.deviceId))
         } catch (e: Exception) {
             Result.failure(e)
         }
