@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "licences": {
+      "collection": "licences",
+      "fields": {
+        "code": {
+          "type": "string",
+          "required": true
+        },
+        "expire_le": {
+          "type": "timestamp",
+          "required": true
+        },
+        "statut": {
+          "type": "string",
+          "required": true
+        },
+        "device_id": {
+          "type": "string",
+          "required": false
+        },
+        "created_at": {
+          "type": "timestamp",
+          "required": true
+        },
+        "client_name": {
+          "type": "string",
+          "required": false
+        },
+        "notes": {
+          "type": "string",
+          "required": false
+        }
+      }
+    }
+  }
+}

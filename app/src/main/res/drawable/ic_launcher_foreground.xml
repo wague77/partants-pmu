@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Horseshoe frame in gold -->
+    <path
+        android:pathData="M38,36 C38,24 70,24 70,36 C70,44 65,51 65,56 C65,60 67,64 69,72 L62,75 C60,67 58,62 58,57 C58,50 63,43 63,36 C63,29 45,29 45,36 C45,43 50,50 50,57 C50,62 48,67 46,75 L39,72 C41,64 43,60 43,56 C43,51 38,44 38,36 Z"
+        android:fillColor="#F59E0B" />
+    <!-- Horse head and mane silhouette in rich gold -->
+    <path
+        android:pathData="M54,34 C56,31 60,30 63,33 C64,34 62,37 60,38 C63,40 68,43 65,48 C63,51 59,51 56,49 C54,54 51,57 47,60 C44,62 42,66 40,71 C38,67 38,63 40,59 C42,55 45,52 47,48 C46,45 46,42 47,39 C49,36 51,35 54,34 Z"
+        android:fillColor="#FBBF24" />
+    <!-- Gold Stars / Turf Accent -->
+    <path
+        android:pathData="M54,23 L55.5,27 L60,27 L56.5,29.5 L58,34 L54,31.5 L50,34 L51.5,29.5 L48,27 L52.5,27 Z"
+        android:fillColor="#FDE047" />
+    <!-- Little PMU star dots -->
+    <path
+        android:pathData="M35,60 A2,2 0 1,1 35,64 A2,2 0 1,1 35,60 Z"
+        android:fillColor="#FDE047" />
+    <path
+        android:pathData="M73,60 A2,2 0 1,1 73,64 A2,2 0 1,1 73,60 Z"
+        android:fillColor="#FDE047" />
+</vector>

@@ -1,0 +1,6 @@
+{
+  "name": "Partants PMU",
+  "description": "Consultez le programme, les réunions, les courses, les partants et les pronostics officiels PMU du jour avec cotes et combinaisons de jeux.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
