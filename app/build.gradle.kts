@@ -1,4 +1,6 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.io.File
+import java.util.Base64
 
 plugins {
   alias(libs.plugins.android.application)
@@ -24,11 +26,24 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      val base64Key = System.getenv("KEYSTORE_BASE64")
+      if (!base64Key.isNullOrBlank()) {
+        val keystoreFile = File("${projectDir}/pmu-release.jks")
+        val decodedBytes = Base64.getDecoder().decode(base64Key.trim())
+        keystoreFile.writeBytes(decodedBytes)
+        storeFile = keystoreFile
+      } else {
+        val customPath = System.getenv("KEYSTORE_PATH")
+        val fallbackFile = if (customPath != null) file(customPath) else file("${projectDir}/pmu-release.jks")
+        if (fallbackFile.exists()) {
+          storeFile = fallbackFile
+        } else {
+          storeFile = file("${rootDir}/debug.keystore")
+        }
+      }
+      storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "Pmu2026!"
+      keyAlias = System.getenv("KEY_ALIAS") ?: "pmu"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: "Pmu2026!"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
